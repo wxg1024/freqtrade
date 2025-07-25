@@ -104,7 +104,7 @@ const MACDChart: React.FC<{ data: ChartDataPoint[]; height: number }> = ({ data,
           <ReferenceLine y={0} stroke="#6b7280" strokeDasharray="2 2" />
           <Bar
             dataKey="macd_hist"
-            fill={(entry: any) => entry.macd_hist >= 0 ? '#10b981' : '#ef4444'}
+            fill="#6b7280"
             opacity={0.7}
           />
         </ComposedChart>

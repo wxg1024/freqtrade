@@ -20,9 +20,19 @@ export interface IndicatorData {
   macd: number | null;
   macd_signal: number | null;
   macd_hist: number | null;
+  macd_histogram: number | null;
   ema_12: number | null;
   ema_26: number | null;
   rsi: number | null;
+  bb_upper: number | null;
+  bb_middle: number | null;
+  bb_lower: number | null;
+  stoch_k: number | null;
+  stoch_d: number | null;
+  williams_r: number | null;
+  cci: number | null;
+  atr: number | null;
+  adx: number | null;
   created_at: Date;
 }
 
@@ -53,6 +63,14 @@ export interface ChartDataPoint {
   ema_12?: number;
   ema_26?: number;
   rsi?: number;
+  // SCORE数据 - 多时间周期
+  score_5m?: number;
+  score_15m?: number;
+  score_1h?: number;
+  score_4h?: number;
+  score_1d?: number;
+  total_score?: number;
+  signal?: string;
 }
 
 export interface ScoreDataPoint {

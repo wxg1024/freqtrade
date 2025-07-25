@@ -67,9 +67,30 @@ npm run dev
 
 项目支持通过Vercel进行部署，相关配置文件已包含在项目中。
 
+## 文档
+
+### 📚 完整文档
+
+- **[架构设计](./docs/ARCHITECTURE.md)** - 系统架构和技术栈详解
+- **[API文档](./docs/API.md)** - RESTful API和WebSocket接口文档
+- **[开发指南](./docs/DEVELOPMENT.md)** - 开发环境配置和编码规范
+- **[部署指南](./docs/DEPLOYMENT.md)** - 生产环境部署和运维指南
+- **[贡献指南](./docs/CONTRIBUTING.md)** - 如何参与项目开发
+- **[故障排除](./docs/TROUBLESHOOTING.md)** - 常见问题诊断和解决方案
+
+### 🔗 快速链接
+
+- [快速开始](#快速开始) - 5分钟快速体验
+- [功能特性](#功能特性) - 了解核心功能
+- [技术架构](./docs/ARCHITECTURE.md#技术架构) - 深入了解技术实现
+- [API接口](./docs/API.md#restful-api) - 集成API到您的应用
+- [部署方案](./docs/DEPLOYMENT.md#部署架构) - 选择合适的部署方式
+
 ## 注意事项
 
 1. 确保PostgreSQL数据库已正确配置并运行
 2. 确保FreqTrade的ScoringSystem策略正在运行并写入数据
 3. 前端和后端需要同时运行才能实现完整功能
 4. 默认情况下，后端API运行在3001端口，前端开发服务器运行在5173端口
+5. 生产环境部署请参考[部署指南](./docs/DEPLOYMENT.md)
+6. 遇到问题请查看[故障排除指南](./docs/TROUBLESHOOTING.md)
