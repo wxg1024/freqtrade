@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  BarChart3,
-  TrendingUp,
   Menu,
+  TrendingUp,
+  BarChart3,
   X,
   Wifi,
   WifiOff,
   Settings,
   Home,
+  LineChart,
 } from 'lucide-react';
 import { useAppStore } from '../store';
 
@@ -33,6 +34,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       href: '/charts',
       icon: BarChart3,
       current: location.pathname === '/charts',
+    },
+    {
+      name: '专业K线',
+      href: '/kline-proc',
+      icon: LineChart,
+      current: location.pathname === '/kline-proc',
     },
   ];
 

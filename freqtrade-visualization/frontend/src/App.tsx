@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Charts } from './pages/Charts';
+import { KlineProcCharts } from './pages/KlineProcCharts';
 import websocketService from './services/websocket';
 import { useAppStore } from './store';
 
@@ -33,6 +34,8 @@ function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/charts" element={<Charts />} />
+            <Route path="/kline-proc" element={<KlineProcCharts />} />
+            
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Layout>

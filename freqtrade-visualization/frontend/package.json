@@ -11,10 +11,12 @@
     "check": "tsc -b --noEmit"
   },
   "dependencies": {
+    "@klinecharts/pro": "^0.1.1",
     "@types/pg": "^8.15.4",
     "axios": "^1.11.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "klinecharts": "^9.8.12",
     "lightweight-charts": "^5.0.8",
     "lucide-react": "^0.511.0",
     "pg": "^8.16.3",
@@ -25,6 +27,7 @@
     "socket.io-client": "^4.8.1",
     "sonner": "^2.0.6",
     "tailwind-merge": "^3.0.2",
+    "technicalindicators": "^3.1.0",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

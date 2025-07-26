@@ -265,11 +265,26 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     rsi: height * 0.12,
     score: height * 0.2,
   });
+  
+  // 时间轴同步状态
+  const [syncedTimeRange, setSyncedTimeRange] = useState<{
+    startIndex?: number;
+    endIndex?: number;
+    startTime?: number;
+    endTime?: number;
+  }>({});
+  
+  // 拖拽和缩放状态
+  const [isDraggingTime, setIsDraggingTime] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [initialTimeRange, setInitialTimeRange] = useState<{startTime: number, endTime: number} | null>(null);
+  
   const chartRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const dragStartY = useRef(0);
   const dragChart = useRef<string>('');
   const initialHeight = useRef(0);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
   
   const chartData = useMemo(() => {
     return data.map(item => ({
@@ -277,6 +292,174 @@ export const TradingChart: React.FC<TradingChartProps> = ({
       timestamp: new Date(item.timestamp).getTime(),
     }));
   }, [data]);
+  
+  // 处理时间轴同步
+  const handleBrushChange = useCallback((brushData: any) => {
+    if (brushData && brushData.startIndex !== undefined && brushData.endIndex !== undefined) {
+      const startTime = chartData[brushData.startIndex]?.timestamp;
+      const endTime = chartData[brushData.endIndex]?.timestamp;
+      setSyncedTimeRange({
+        startIndex: brushData.startIndex,
+        endIndex: brushData.endIndex,
+        startTime,
+        endTime,
+      });
+    }
+  }, [chartData]);
+  
+  // 处理鼠标滚轮缩放
+  const handleWheel = useCallback((e: WheelEvent) => {
+    e.preventDefault();
+    
+    const currentRange = syncedTimeRange;
+    if (!currentRange.startTime || !currentRange.endTime) return;
+    
+    const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+    const currentSpan = currentRange.endTime - currentRange.startTime;
+    const newSpan = currentSpan * zoomFactor;
+    
+    // 计算鼠标位置对应的时间点作为缩放中心
+    const rect = chartContainerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const mouseX = e.clientX - rect.left;
+    const chartWidth = rect.width - 120; // 减去左右边距
+    const mouseRatio = (mouseX - 60) / chartWidth; // 60是左边距
+    
+    const centerTime = currentRange.startTime + (currentRange.endTime - currentRange.startTime) * mouseRatio;
+    
+    let newStartTime = centerTime - newSpan * mouseRatio;
+    let newEndTime = centerTime + newSpan * (1 - mouseRatio);
+    
+    // 限制缩放范围
+    const minTime = chartData[0]?.timestamp || 0;
+    const maxTime = chartData[chartData.length - 1]?.timestamp || 0;
+    
+    if (newStartTime < minTime) {
+      newStartTime = minTime;
+      newEndTime = Math.min(newStartTime + newSpan, maxTime);
+    }
+    if (newEndTime > maxTime) {
+      newEndTime = maxTime;
+      newStartTime = Math.max(newEndTime - newSpan, minTime);
+    }
+    
+    // 找到对应的索引
+    const startIndex = chartData.findIndex(d => d.timestamp >= newStartTime);
+    const endIndex = chartData.findIndex(d => d.timestamp >= newEndTime);
+    
+    setSyncedTimeRange({
+      startIndex: Math.max(0, startIndex),
+      endIndex: endIndex === -1 ? chartData.length - 1 : endIndex,
+      startTime: newStartTime,
+      endTime: newEndTime,
+    });
+  }, [syncedTimeRange, chartData]);
+  
+  // 处理鼠标拖拽平移
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return; // 只处理左键
+    
+    const currentRange = syncedTimeRange;
+    if (!currentRange.startTime || !currentRange.endTime) return;
+    
+    setIsDraggingTime(true);
+    setDragStartX(e.clientX);
+    setInitialTimeRange({
+      startTime: currentRange.startTime,
+      endTime: currentRange.endTime,
+    });
+    
+    e.preventDefault();
+  }, [syncedTimeRange]);
+  
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDraggingTime || !initialTimeRange || !chartContainerRef.current) return;
+    
+    const deltaX = e.clientX - dragStartX;
+    const rect = chartContainerRef.current.getBoundingClientRect();
+    const chartWidth = rect.width - 120; // 减去左右边距
+    
+    const timeSpan = initialTimeRange.endTime - initialTimeRange.startTime;
+    const timePerPixel = timeSpan / chartWidth;
+    const deltaTime = deltaX * timePerPixel;
+    
+    let newStartTime = initialTimeRange.startTime - deltaTime;
+    let newEndTime = initialTimeRange.endTime - deltaTime;
+    
+    // 限制拖拽范围
+    const minTime = chartData[0]?.timestamp || 0;
+    const maxTime = chartData[chartData.length - 1]?.timestamp || 0;
+    
+    if (newStartTime < minTime) {
+      const offset = minTime - newStartTime;
+      newStartTime = minTime;
+      newEndTime += offset;
+    }
+    if (newEndTime > maxTime) {
+      const offset = newEndTime - maxTime;
+      newEndTime = maxTime;
+      newStartTime -= offset;
+    }
+    
+    // 找到对应的索引
+    const startIndex = chartData.findIndex(d => d.timestamp >= newStartTime);
+    const endIndex = chartData.findIndex(d => d.timestamp >= newEndTime);
+    
+    setSyncedTimeRange({
+      startIndex: Math.max(0, startIndex),
+      endIndex: endIndex === -1 ? chartData.length - 1 : endIndex,
+      startTime: newStartTime,
+      endTime: newEndTime,
+    });
+  }, [isDraggingTime, dragStartX, initialTimeRange, chartData]);
+  
+  const handleMouseUp = useCallback(() => {
+    setIsDraggingTime(false);
+    setInitialTimeRange(null);
+  }, []);
+  
+  // 双击重置时间轴
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // 重置到显示所有数据
+    setSyncedTimeRange({
+      startIndex: 0,
+      endIndex: chartData.length - 1,
+      startTime: chartData[0]?.timestamp,
+      endTime: chartData[chartData.length - 1]?.timestamp,
+    });
+  }, [chartData]);
+  
+  // 获取同步的时间域
+  const getSyncedTimeDomain = useCallback(() => {
+    if (syncedTimeRange.startTime && syncedTimeRange.endTime) {
+      return [syncedTimeRange.startTime, syncedTimeRange.endTime];
+    }
+    return ['dataMin', 'dataMax'];
+  }, [syncedTimeRange]);
+  
+  // 同步的时间域
+  const timeDomain = getSyncedTimeDomain();
+  
+  // 初始化时间范围
+  useEffect(() => {
+    if (chartData.length > 0 && !syncedTimeRange.startTime) {
+      const dataLength = chartData.length;
+      const visibleCount = Math.min(100, dataLength); // 默认显示最近100个数据点
+      const startIndex = Math.max(0, dataLength - visibleCount);
+      const endIndex = dataLength - 1;
+      
+      setSyncedTimeRange({
+        startIndex,
+        endIndex,
+        startTime: chartData[startIndex]?.timestamp,
+        endTime: chartData[endIndex]?.timestamp,
+      });
+    }
+  }, [chartData, syncedTimeRange.startTime]);
   
   // 计算图表高度分配
   const mainChartHeight = fullscreenChart === 'main' ? window.innerHeight - 200 : chartHeights.main;
@@ -305,19 +488,20 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     }
   };
 
-  // 拖拽处理函数
-  const handleMouseDown = useCallback((e: React.MouseEvent, chartType: string) => {
+  // 拖拽处理函数（用于调整图表高度）
+  const handleHeightMouseDown = useCallback((e: React.MouseEvent, chartType: string) => {
     e.preventDefault();
+    e.stopPropagation();
     isDragging.current = true;
     dragStartY.current = e.clientY;
     dragChart.current = chartType;
     initialHeight.current = chartHeights[chartType as keyof typeof chartHeights];
     
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousemove', handleHeightMouseMove);
+    document.addEventListener('mouseup', handleHeightMouseUp);
   }, [chartHeights]);
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
+  const handleHeightMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging.current) return;
     
     const deltaY = e.clientY - dragStartY.current;
@@ -329,21 +513,42 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     }));
   }, []);
 
-  const handleMouseUp = useCallback(() => {
+  const handleHeightMouseUp = useCallback(() => {
     isDragging.current = false;
     dragChart.current = '';
     
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-  }, [handleMouseMove]);
+    document.removeEventListener('mousemove', handleHeightMouseMove);
+    document.removeEventListener('mouseup', handleHeightMouseUp);
+  }, [handleHeightMouseMove]);
 
   // 清理事件监听器
   useEffect(() => {
     return () => {
+      document.removeEventListener('mousemove', handleHeightMouseMove);
+      document.removeEventListener('mouseup', handleHeightMouseUp);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [handleMouseMove, handleMouseUp]);
+  }, [handleHeightMouseMove, handleHeightMouseUp, handleMouseMove, handleMouseUp]);
+  
+  // 添加时间轴同步事件监听器
+  useEffect(() => {
+    const chartContainer = chartContainerRef.current;
+    if (!chartContainer) return;
+    
+    // 添加滚轮事件监听器
+    chartContainer.addEventListener('wheel', handleWheel, { passive: false });
+    
+    // 添加鼠标事件监听器
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    return () => {
+      chartContainer.removeEventListener('wheel', handleWheel);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [handleWheel, handleMouseMove, handleMouseUp]);
   
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -548,7 +753,18 @@ export const TradingChart: React.FC<TradingChartProps> = ({
       
       {/* 图表区域 - AICoin风格统一时间轴 */}
       <div className="p-4">
-        <div className="relative bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div 
+          ref={chartContainerRef}
+          className="relative bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 select-none"
+          onMouseDown={handleMouseDown}
+          onDoubleClick={handleDoubleClick}
+          style={{ cursor: isDraggingTime ? 'grabbing' : 'grab' }}
+          title="拖拽平移时间轴，滚轮缩放，双击重置"
+        >
+          {/* 时间轴操作提示 */}
+          <div className="absolute top-2 right-4 z-20 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
+            拖拽平移 | 滚轮缩放 | 双击重置
+          </div>
           {/* 主K线图 */}
           <div 
             className={`relative border-b border-gray-200 dark:border-gray-600 ${fullscreenChart === 'main' ? 'fixed inset-4 z-50 bg-white dark:bg-gray-900 rounded-lg shadow-2xl' : ''}`}
@@ -564,7 +780,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
                   dataKey="timestamp"
                   type="number"
                   scale="time"
-                  domain={['dataMin', 'dataMax']}
+                  domain={timeDomain}
                   axisLine={false}
                   tickLine={false}
                   tick={false}
@@ -624,7 +840,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
           
           {/* 主图表拖拽分隔条 */}
           {!fullscreenChart && settings.showVolume && (
-            <DragHandle onMouseDown={(e) => handleMouseDown(e, 'main')} />
+            <DragHandle onMouseDown={(e) => handleHeightMouseDown(e, 'main')} />
           )}
           
           {/* 成交量图表 */}
@@ -643,7 +859,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
                     dataKey="timestamp"
                     type="number"
                     scale="time"
-                    domain={['dataMin', 'dataMax']}
+                    domain={timeDomain}
                     axisLine={false}
                     tickLine={false}
                     tick={false}
@@ -677,7 +893,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
           
           {/* 成交量图表拖拽分隔条 */}
           {!fullscreenChart && settings.showVolume && settings.showMACD && (
-            <DragHandle onMouseDown={(e) => handleMouseDown(e, 'volume')} />
+            <DragHandle onMouseDown={(e) => handleHeightMouseDown(e, 'volume')} />
           )}
           
           {/* MACD指标 */}
@@ -696,7 +912,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
                     dataKey="timestamp"
                     type="number"
                     scale="time"
-                    domain={['dataMin', 'dataMax']}
+                    domain={timeDomain}
                     axisLine={false}
                     tickLine={false}
                     tick={false}
@@ -748,7 +964,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
           
           {/* MACD图表拖拽分隔条 */}
           {!fullscreenChart && settings.showMACD && settings.showRSI && (
-            <DragHandle onMouseDown={(e) => handleMouseDown(e, 'macd')} />
+            <DragHandle onMouseDown={(e) => handleHeightMouseDown(e, 'macd')} />
           )}
           
           {/* RSI指标 */}
@@ -767,7 +983,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
                     dataKey="timestamp"
                     type="number"
                     scale="time"
-                    domain={['dataMin', 'dataMax']}
+                    domain={timeDomain}
                     axisLine={false}
                     tickLine={false}
                     tick={false}
@@ -806,7 +1022,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
           
           {/* RSI图表拖拽分隔条 */}
           {!fullscreenChart && settings.showRSI && settings.showScore && (
-            <DragHandle onMouseDown={(e) => handleMouseDown(e, 'rsi')} />
+            <DragHandle onMouseDown={(e) => handleHeightMouseDown(e, 'rsi')} />
           )}
           
           {/* SCORE指标图表 */}
@@ -832,7 +1048,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
                     dataKey="timestamp"
                     type="number"
                     scale="time"
-                    domain={['dataMin', 'dataMax']}
+                    domain={timeDomain}
                     axisLine={false}
                     tickLine={false}
                     tick={false}
@@ -946,6 +1162,9 @@ export const TradingChart: React.FC<TradingChartProps> = ({
                   height={30}
                   stroke="#8884d8"
                   tickFormatter={(value) => format(new Date(value), 'MM-dd')}
+                  onChange={handleBrushChange}
+                  startIndex={syncedTimeRange.startIndex || 0}
+                  endIndex={syncedTimeRange.endIndex || chartData.length - 1}
                 />
               </ComposedChart>
             </ResponsiveContainer>

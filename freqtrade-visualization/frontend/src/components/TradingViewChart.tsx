@@ -3,17 +3,20 @@ import {
   createChart, 
   IChartApi, 
   ISeriesApi, 
-  Time,
-  CandlestickData,
+  Time, 
+  CandlestickData, 
+  HistogramData, 
   LineData,
-  HistogramData,
-  CandlestickSeries,
+  CandlestickSeriesPartialOptions,
+  LineSeriesPartialOptions,
+  HistogramSeriesPartialOptions,
   LineSeries,
+  CandlestickSeries,
   HistogramSeries
 } from 'lightweight-charts';
-import { format } from 'date-fns';
 import { ChartDataPoint } from '../types';
-import { Settings, Maximize2, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
+import { Settings, Maximize2, BarChart3 } from 'lucide-react';
+import { MACD, RSI, EMA, SMA, BollingerBands, Stochastic, ATR, CCI, WilliamsR } from 'technicalindicators';
 
 interface TradingViewChartProps {
   data: ChartDataPoint[];
@@ -27,8 +30,14 @@ interface TradingViewChartProps {
 interface ChartSettings {
   showEMA12: boolean;
   showEMA26: boolean;
+  showSMA20: boolean;
+  showBollingerBands: boolean;
   showMACD: boolean;
   showRSI: boolean;
+  showStochastic: boolean;
+  showATR: boolean;
+  showCCI: boolean;
+  showWilliamsR: boolean;
   showVolume: boolean;
   showScore: boolean;
   showScore5m: boolean;
@@ -52,18 +61,36 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const ema12SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const ema26SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const sma20SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const bollingerUpperSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const bollingerLowerSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const bollingerMiddleSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const macdChartRef = useRef<IChartApi | null>(null);
   const rsiChartRef = useRef<IChartApi | null>(null);
+  const stochasticChartRef = useRef<IChartApi | null>(null);
+  const atrChartRef = useRef<IChartApi | null>(null);
+  const cciChartRef = useRef<IChartApi | null>(null);
+  const williamsRChartRef = useRef<IChartApi | null>(null);
   const scoreChartRef = useRef<IChartApi | null>(null);
   const macdContainerRef = useRef<HTMLDivElement>(null);
   const rsiContainerRef = useRef<HTMLDivElement>(null);
+  const stochasticContainerRef = useRef<HTMLDivElement>(null);
+  const atrContainerRef = useRef<HTMLDivElement>(null);
+  const cciContainerRef = useRef<HTMLDivElement>(null);
+  const williamsRContainerRef = useRef<HTMLDivElement>(null);
   const scoreContainerRef = useRef<HTMLDivElement>(null);
   
   const [settings, setSettings] = useState<ChartSettings>({
     showEMA12: true,
     showEMA26: true,
+    showSMA20: false,
+    showBollingerBands: false,
     showMACD: true,
     showRSI: true,
+    showStochastic: false,
+    showATR: false,
+    showCCI: false,
+    showWilliamsR: false,
     showVolume: true,
     showScore: true,
     showScore5m: true,
@@ -77,7 +104,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenChart, setFullscreenChart] = useState<string | null>(null);
   
-  // 转换数据格式
+  // 数据转换函数
   const convertToCandlestickData = useCallback((data: ChartDataPoint[]): CandlestickData[] => {
     return data.map(item => ({
       time: (new Date(item.timestamp).getTime() / 1000) as Time,
@@ -96,14 +123,126 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
     }));
   }, []);
   
-  const convertToLineData = useCallback((data: ChartDataPoint[], key: keyof ChartDataPoint): LineData[] => {
+  const convertToLineData = useCallback((data: ChartDataPoint[], field: keyof ChartDataPoint): LineData[] => {
     return data
-      .filter(item => item[key] !== undefined && item[key] !== null)
+      .filter(item => item[field] !== undefined && item[field] !== null)
       .map(item => ({
         time: (new Date(item.timestamp).getTime() / 1000) as Time,
-        value: item[key] as number,
+        value: item[field] as number,
       }));
   }, []);
+  
+  // 技术指标计算函数
+  const calculateTechnicalIndicators = useCallback((data: ChartDataPoint[]) => {
+    if (!data || data.length < 50) return {}; // 需要足够的数据点
+    
+    const closes = data.map(d => d.close);
+    const highs = data.map(d => d.high);
+    const lows = data.map(d => d.low);
+    const volumes = data.map(d => d.volume);
+    
+    const indicators: any = {};
+    
+    try {
+      // EMA计算
+      if (settings.showEMA12) {
+        const ema12Values = EMA.calculate({ period: 12, values: closes });
+        indicators.ema12 = ema12Values;
+      }
+      
+      if (settings.showEMA26) {
+        const ema26Values = EMA.calculate({ period: 26, values: closes });
+        indicators.ema26 = ema26Values;
+      }
+      
+      // SMA计算
+      if (settings.showSMA20) {
+        const sma20Values = SMA.calculate({ period: 20, values: closes });
+        indicators.sma20 = sma20Values;
+      }
+      
+      // 布林带计算
+      if (settings.showBollingerBands) {
+        const bbValues = BollingerBands.calculate({
+          period: 20,
+          values: closes,
+          stdDev: 2
+        });
+        indicators.bollingerBands = bbValues;
+      }
+      
+      // MACD计算
+      if (settings.showMACD) {
+        const macdValues = MACD.calculate({
+          values: closes,
+          fastPeriod: 12,
+          slowPeriod: 26,
+          signalPeriod: 9,
+          SimpleMAOscillator: false,
+          SimpleMASignal: false
+        });
+        indicators.macd = macdValues;
+      }
+      
+      // RSI计算
+      if (settings.showRSI) {
+        const rsiValues = RSI.calculate({ period: 14, values: closes });
+        indicators.rsi = rsiValues;
+      }
+      
+      // Stochastic计算
+      if (settings.showStochastic) {
+        const stochasticInput = data.map(d => ({ high: d.high, low: d.low, close: d.close }));
+        const stochasticValues = Stochastic.calculate({
+          high: highs,
+          low: lows,
+          close: closes,
+          period: 14,
+          signalPeriod: 3
+        });
+        indicators.stochastic = stochasticValues;
+      }
+      
+      // ATR计算
+      if (settings.showATR) {
+        const atrInput = data.map(d => ({ high: d.high, low: d.low, close: d.close }));
+        const atrValues = ATR.calculate({
+          high: highs,
+          low: lows,
+          close: closes,
+          period: 14
+        });
+        indicators.atr = atrValues;
+      }
+      
+      // CCI计算
+      if (settings.showCCI) {
+        const cciValues = CCI.calculate({
+          high: highs,
+          low: lows,
+          close: closes,
+          period: 20
+        });
+        indicators.cci = cciValues;
+      }
+      
+      // Williams %R计算
+      if (settings.showWilliamsR) {
+        const williamsRValues = WilliamsR.calculate({
+          high: highs,
+          low: lows,
+          close: closes,
+          period: 14
+        });
+        indicators.williamsR = williamsRValues;
+      }
+      
+    } catch (error) {
+      console.error('计算技术指标时出错:', error);
+    }
+    
+    return indicators;
+  }, [settings]);
   
   // 初始化主图表
   const initializeMainChart = useCallback(() => {
@@ -143,7 +282,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       borderUpColor: '#26a69a',
       wickDownColor: '#ef5350',
       wickUpColor: '#26a69a',
-    });
+    } as CandlestickSeriesPartialOptions);
     candlestickSeriesRef.current = candlestickSeries;
     
     // 添加成交量系列
@@ -154,7 +293,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
           type: 'volume',
         },
         priceScaleId: 'volume',
-      });
+      } as HistogramSeriesPartialOptions);
       volumeSeriesRef.current = volumeSeries;
       
       chart.priceScale('volume').applyOptions({
@@ -171,7 +310,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
         color: '#2196f3',
         lineWidth: 2,
         title: 'EMA12',
-      });
+      } as LineSeriesPartialOptions);
       ema12SeriesRef.current = ema12Series;
     }
     
@@ -180,8 +319,45 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
         color: '#9c27b0',
         lineWidth: 2,
         title: 'EMA26',
-      });
+      } as LineSeriesPartialOptions);
       ema26SeriesRef.current = ema26Series;
+    }
+    
+    // 添加SMA20线
+    if (settings.showSMA20) {
+      const sma20Series = chart.addSeries(LineSeries, {
+        color: '#ff9800',
+        lineWidth: 2,
+        title: 'SMA20',
+      } as LineSeriesPartialOptions);
+      sma20SeriesRef.current = sma20Series;
+    }
+    
+    // 添加布林带
+    if (settings.showBollingerBands) {
+      const bollingerUpperSeries = chart.addSeries(LineSeries, {
+        color: '#f44336',
+        lineWidth: 1,
+        lineStyle: 2, // 虚线
+        title: '布林带上轨',
+      } as LineSeriesPartialOptions);
+      bollingerUpperSeriesRef.current = bollingerUpperSeries;
+      
+      const bollingerLowerSeries = chart.addSeries(LineSeries, {
+        color: '#4caf50',
+        lineWidth: 1,
+        lineStyle: 2, // 虚线
+        title: '布林带下轨',
+      } as LineSeriesPartialOptions);
+      bollingerLowerSeriesRef.current = bollingerLowerSeries;
+      
+      const bollingerMiddleSeries = chart.addSeries(LineSeries, {
+        color: '#607d8b',
+        lineWidth: 1,
+        lineStyle: 2, // 虚线
+        title: '布林带中轨',
+      } as LineSeriesPartialOptions);
+      bollingerMiddleSeriesRef.current = bollingerMiddleSeries;
     }
     
     return chart;
@@ -215,38 +391,66 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       },
       timeScale: {
         borderColor: settings.theme === 'dark' ? '#4b5563' : '#d1d5db',
-        visible: false,
+        visible: true,
+        timeVisible: true,
+        secondsVisible: false,
       },
     });
     
     macdChartRef.current = chart;
+    
+    // 同步时间轴
+    if (chartRef.current) {
+      chartRef.current.timeScale().subscribeVisibleTimeRangeChange((timeRange) => {
+        if (timeRange && chart && timeRange.from !== null && timeRange.to !== null) {
+          try {
+            chart.timeScale().setVisibleRange(timeRange);
+          } catch (error) {
+            console.warn('时间轴同步失败:', error);
+          }
+        }
+      });
+    }
     
     // 添加MACD线
     const macdSeries = chart.addSeries(LineSeries, {
       color: '#2196f3',
       lineWidth: 2,
       title: 'MACD',
-    });
+    } as LineSeriesPartialOptions);
     macdSeriesRef.current = macdSeries;
     
     const signalSeries = chart.addSeries(LineSeries, {
       color: '#ff9800',
       lineWidth: 2,
       title: 'Signal',
-    });
+    } as LineSeriesPartialOptions);
     macdSignalSeriesRef.current = signalSeries;
     
     const histogramSeries = chart.addSeries(HistogramSeries, {
       color: '#26a69a',
       title: 'Histogram',
-    });
+    } as HistogramSeriesPartialOptions);
     macdHistogramSeriesRef.current = histogramSeries;
     
     return { chart, macdSeries, signalSeries, histogramSeries };
   }, [height, settings]);
   
-  // RSI系列引用
+  // RSI系列
   const rsiSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  
+  // Stochastic系列
+  const stochasticKSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const stochasticDSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  
+  // ATR系列
+  const atrSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  
+  // CCI系列
+  const cciSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  
+  // Williams %R系列
+  const williamsRSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   
   // 初始化RSI图表
   const initializeRSIChart = useCallback(() => {
@@ -271,21 +475,264 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       },
       timeScale: {
         borderColor: settings.theme === 'dark' ? '#4b5563' : '#d1d5db',
-        visible: false,
+        visible: true,
+        timeVisible: true,
+        secondsVisible: false,
       },
     });
     
     rsiChartRef.current = chart;
     
+    // 同步时间轴
+    if (chartRef.current) {
+      chartRef.current.timeScale().subscribeVisibleTimeRangeChange((timeRange) => {
+        if (timeRange && chart && timeRange.from !== null && timeRange.to !== null) {
+          try {
+            chart.timeScale().setVisibleRange(timeRange);
+          } catch (error) {
+            console.warn('RSI时间轴同步失败:', error);
+          }
+        }
+      });
+    }
+
     // 添加RSI线
     const rsiSeries = chart.addSeries(LineSeries, {
       color: '#ff9800',
       lineWidth: 2,
       title: 'RSI',
-    });
+    } as LineSeriesPartialOptions);
     rsiSeriesRef.current = rsiSeries;
     
     return { chart, rsiSeries };
+  }, [height, settings]);
+  
+  // 初始化Stochastic图表
+  const initializeStochasticChart = useCallback(() => {
+    if (!stochasticContainerRef.current || !settings.showStochastic) return;
+    
+    const chart = createChart(stochasticContainerRef.current, {
+      width: stochasticContainerRef.current.clientWidth,
+      height: Math.floor(height * 0.12),
+      layout: {
+        background: { color: settings.theme === 'dark' ? '#1f2937' : '#ffffff' },
+        textColor: settings.theme === 'dark' ? '#d1d5db' : '#374151',
+      },
+      grid: {
+        vertLines: { color: settings.theme === 'dark' ? '#374151' : '#e5e7eb' },
+        horzLines: { color: settings.theme === 'dark' ? '#374151' : '#e5e7eb' },
+      },
+      crosshair: {
+        mode: 1,
+      },
+      rightPriceScale: {
+        borderColor: settings.theme === 'dark' ? '#4b5563' : '#d1d5db',
+      },
+      timeScale: {
+        borderColor: settings.theme === 'dark' ? '#4b5563' : '#d1d5db',
+        visible: true,
+        timeVisible: true,
+        secondsVisible: false,
+      },
+    });
+    
+    stochasticChartRef.current = chart;
+    
+    // 同步时间轴
+    if (chartRef.current) {
+      chartRef.current.timeScale().subscribeVisibleTimeRangeChange((timeRange) => {
+        if (timeRange && chart && timeRange.from !== null && timeRange.to !== null) {
+          try {
+            chart.timeScale().setVisibleRange(timeRange);
+          } catch (error) {
+            console.warn('Stochastic时间轴同步失败:', error);
+          }
+        }
+      });
+    }
+
+    // 添加%K线
+    const kSeries = chart.addSeries(LineSeries, {
+      color: '#2196f3',
+      lineWidth: 2,
+      title: '%K',
+    } as LineSeriesPartialOptions);
+    stochasticKSeriesRef.current = kSeries;
+    
+    // 添加%D线
+    const dSeries = chart.addSeries(LineSeries, {
+      color: '#ff9800',
+      lineWidth: 2,
+      title: '%D',
+    } as LineSeriesPartialOptions);
+    stochasticDSeriesRef.current = dSeries;
+    
+    return { chart, kSeries, dSeries };
+  }, [height, settings]);
+  
+  // 初始化ATR图表
+  const initializeATRChart = useCallback(() => {
+    if (!atrContainerRef.current || !settings.showATR) return;
+    
+    const chart = createChart(atrContainerRef.current, {
+      width: atrContainerRef.current.clientWidth,
+      height: Math.floor(height * 0.12),
+      layout: {
+        background: { color: settings.theme === 'dark' ? '#1f2937' : '#ffffff' },
+        textColor: settings.theme === 'dark' ? '#d1d5db' : '#374151',
+      },
+      grid: {
+        vertLines: { color: settings.theme === 'dark' ? '#374151' : '#e5e7eb' },
+        horzLines: { color: settings.theme === 'dark' ? '#374151' : '#e5e7eb' },
+      },
+      crosshair: {
+        mode: 1,
+      },
+      rightPriceScale: {
+        borderColor: settings.theme === 'dark' ? '#4b5563' : '#d1d5db',
+      },
+      timeScale: {
+        borderColor: settings.theme === 'dark' ? '#4b5563' : '#d1d5db',
+        visible: true,
+        timeVisible: true,
+        secondsVisible: false,
+      },
+    });
+    
+    atrChartRef.current = chart;
+    
+    // 同步时间轴
+    if (chartRef.current) {
+      chartRef.current.timeScale().subscribeVisibleTimeRangeChange((timeRange) => {
+        if (timeRange && chart && timeRange.from !== null && timeRange.to !== null) {
+          try {
+            chart.timeScale().setVisibleRange(timeRange);
+          } catch (error) {
+            console.warn('ATR时间轴同步失败:', error);
+          }
+        }
+      });
+    }
+
+    // 添加ATR线
+    const atrSeries = chart.addSeries(LineSeries, {
+      color: '#795548',
+      lineWidth: 2,
+      title: 'ATR',
+    } as LineSeriesPartialOptions);
+    atrSeriesRef.current = atrSeries;
+    
+    return { chart, atrSeries };
+  }, [height, settings]);
+  
+  // 初始化CCI图表
+  const initializeCCIChart = useCallback(() => {
+    if (!cciContainerRef.current || !settings.showCCI) return;
+    
+    const chart = createChart(cciContainerRef.current, {
+      width: cciContainerRef.current.clientWidth,
+      height: Math.floor(height * 0.12),
+      layout: {
+        background: { color: settings.theme === 'dark' ? '#1f2937' : '#ffffff' },
+        textColor: settings.theme === 'dark' ? '#d1d5db' : '#374151',
+      },
+      grid: {
+        vertLines: { color: settings.theme === 'dark' ? '#374151' : '#e5e7eb' },
+        horzLines: { color: settings.theme === 'dark' ? '#374151' : '#e5e7eb' },
+      },
+      crosshair: {
+        mode: 1,
+      },
+      rightPriceScale: {
+        borderColor: settings.theme === 'dark' ? '#4b5563' : '#d1d5db',
+      },
+      timeScale: {
+        borderColor: settings.theme === 'dark' ? '#4b5563' : '#d1d5db',
+        visible: true,
+        timeVisible: true,
+        secondsVisible: false,
+      },
+    });
+    
+    cciChartRef.current = chart;
+    
+    // 同步时间轴
+    if (chartRef.current) {
+      chartRef.current.timeScale().subscribeVisibleTimeRangeChange((timeRange) => {
+        if (timeRange && chart && timeRange.from !== null && timeRange.to !== null) {
+          try {
+            chart.timeScale().setVisibleRange(timeRange);
+          } catch (error) {
+            console.warn('CCI时间轴同步失败:', error);
+          }
+        }
+      });
+    }
+
+    // 添加CCI线
+    const cciSeries = chart.addSeries(LineSeries, {
+      color: '#607d8b',
+      lineWidth: 2,
+      title: 'CCI',
+    } as LineSeriesPartialOptions);
+    cciSeriesRef.current = cciSeries;
+    
+    return { chart, cciSeries };
+  }, [height, settings]);
+  
+  // 初始化Williams %R图表
+  const initializeWilliamsRChart = useCallback(() => {
+    if (!williamsRContainerRef.current || !settings.showWilliamsR) return;
+    
+    const chart = createChart(williamsRContainerRef.current, {
+      width: williamsRContainerRef.current.clientWidth,
+      height: Math.floor(height * 0.12),
+      layout: {
+        background: { color: settings.theme === 'dark' ? '#1f2937' : '#ffffff' },
+        textColor: settings.theme === 'dark' ? '#d1d5db' : '#374151',
+      },
+      grid: {
+        vertLines: { color: settings.theme === 'dark' ? '#374151' : '#e5e7eb' },
+        horzLines: { color: settings.theme === 'dark' ? '#374151' : '#e5e7eb' },
+      },
+      crosshair: {
+        mode: 1,
+      },
+      rightPriceScale: {
+        borderColor: settings.theme === 'dark' ? '#4b5563' : '#d1d5db',
+      },
+      timeScale: {
+        borderColor: settings.theme === 'dark' ? '#4b5563' : '#d1d5db',
+        visible: true,
+        timeVisible: true,
+        secondsVisible: false,
+      },
+    });
+    
+    williamsRChartRef.current = chart;
+    
+    // 同步时间轴
+    if (chartRef.current) {
+      chartRef.current.timeScale().subscribeVisibleTimeRangeChange((timeRange) => {
+        if (timeRange && chart && timeRange.from !== null && timeRange.to !== null) {
+          try {
+            chart.timeScale().setVisibleRange(timeRange);
+          } catch (error) {
+            console.warn('Williams %R时间轴同步失败:', error);
+          }
+        }
+      });
+    }
+
+    // 添加Williams %R线
+    const williamsRSeries = chart.addSeries(LineSeries, {
+      color: '#e91e63',
+      lineWidth: 2,
+      title: 'Williams %R',
+    } as LineSeriesPartialOptions);
+    williamsRSeriesRef.current = williamsRSeries;
+    
+    return { chart, williamsRSeries };
   }, [height, settings]);
   
   // SCORE系列引用
@@ -320,6 +767,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       },
       timeScale: {
         borderColor: settings.theme === 'dark' ? '#4b5563' : '#d1d5db',
+        visible: true,
         timeVisible: true,
         secondsVisible: false,
       },
@@ -327,6 +775,19 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
     
     scoreChartRef.current = chart;
     
+    // 同步时间轴
+    if (chartRef.current) {
+      chartRef.current.timeScale().subscribeVisibleTimeRangeChange((timeRange) => {
+        if (timeRange && chart && timeRange.from !== null && timeRange.to !== null) {
+          try {
+            chart.timeScale().setVisibleRange(timeRange);
+          } catch (error) {
+            console.warn('SCORE时间轴同步失败:', error);
+          }
+        }
+      });
+    }
+
     const series: any = {};
     
     if (settings.showScore5m) {
@@ -334,7 +795,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
         color: '#2196f3',
         lineWidth: 2,
         title: '5m',
-      });
+      } as LineSeriesPartialOptions);
       series.score5m = score5mSeries;
       scoreSeriesRefs.current.score5m = score5mSeries;
     }
@@ -344,7 +805,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
         color: '#4caf50',
         lineWidth: 2,
         title: '15m',
-      });
+      } as LineSeriesPartialOptions);
       series.score15m = score15mSeries;
       scoreSeriesRefs.current.score15m = score15mSeries;
     }
@@ -354,7 +815,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
         color: '#ff9800',
         lineWidth: 2,
         title: '1h',
-      });
+      } as LineSeriesPartialOptions);
       series.score1h = score1hSeries;
       scoreSeriesRefs.current.score1h = score1hSeries;
     }
@@ -364,7 +825,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
         color: '#f44336',
         lineWidth: 2,
         title: '4h',
-      });
+      } as LineSeriesPartialOptions);
       series.score4h = score4hSeries;
       scoreSeriesRefs.current.score4h = score4hSeries;
     }
@@ -373,7 +834,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       color: '#9c27b0',
       lineWidth: 3,
       title: 'Total',
-    });
+    } as LineSeriesPartialOptions);
     series.totalScore = totalScoreSeries;
     scoreSeriesRefs.current.totalScore = totalScoreSeries;
     
@@ -383,6 +844,9 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
   // 更新图表数据
   const updateChartData = useCallback(() => {
     if (!data || data.length === 0) return;
+    
+    // 计算技术指标
+    const indicators = calculateTechnicalIndicators(data);
     
     const candlestickData = convertToCandlestickData(data);
     const volumeData = convertToVolumeData(data);
@@ -396,47 +860,143 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       volumeSeriesRef.current.setData(volumeData);
     }
     
-    if (ema12SeriesRef.current && settings.showEMA12) {
-      const ema12Data = convertToLineData(data, 'ema_12');
+    // 更新EMA数据（使用计算的指标）
+    if (ema12SeriesRef.current && settings.showEMA12 && indicators.ema12) {
+      const ema12Data = indicators.ema12.map((value: number, index: number) => ({
+        time: (new Date(data[data.length - indicators.ema12.length + index].timestamp).getTime() / 1000) as Time,
+        value,
+      }));
       ema12SeriesRef.current.setData(ema12Data);
     }
     
-    if (ema26SeriesRef.current && settings.showEMA26) {
-      const ema26Data = convertToLineData(data, 'ema_26');
+    if (ema26SeriesRef.current && settings.showEMA26 && indicators.ema26) {
+      const ema26Data = indicators.ema26.map((value: number, index: number) => ({
+        time: (new Date(data[data.length - indicators.ema26.length + index].timestamp).getTime() / 1000) as Time,
+        value,
+      }));
       ema26SeriesRef.current.setData(ema26Data);
     }
     
-    // 更新MACD数据
-    if (settings.showMACD) {
+    // 更新SMA数据
+    if (sma20SeriesRef.current && settings.showSMA20 && indicators.sma20) {
+      const sma20Data = indicators.sma20.map((value: number, index: number) => ({
+        time: (new Date(data[data.length - indicators.sma20.length + index].timestamp).getTime() / 1000) as Time,
+        value,
+      }));
+      sma20SeriesRef.current.setData(sma20Data);
+    }
+    
+    // 更新布林带数据
+    if (settings.showBollingerBands && indicators.bollingerBands) {
+      if (bollingerUpperSeriesRef.current) {
+        const upperData = indicators.bollingerBands.map((bb: any, index: number) => ({
+          time: (new Date(data[data.length - indicators.bollingerBands.length + index].timestamp).getTime() / 1000) as Time,
+          value: bb.upper,
+        }));
+        bollingerUpperSeriesRef.current.setData(upperData);
+      }
+      
+      if (bollingerLowerSeriesRef.current) {
+        const lowerData = indicators.bollingerBands.map((bb: any, index: number) => ({
+          time: (new Date(data[data.length - indicators.bollingerBands.length + index].timestamp).getTime() / 1000) as Time,
+          value: bb.lower,
+        }));
+        bollingerLowerSeriesRef.current.setData(lowerData);
+      }
+      
+      if (bollingerMiddleSeriesRef.current) {
+        const middleData = indicators.bollingerBands.map((bb: any, index: number) => ({
+          time: (new Date(data[data.length - indicators.bollingerBands.length + index].timestamp).getTime() / 1000) as Time,
+          value: bb.middle,
+        }));
+        bollingerMiddleSeriesRef.current.setData(middleData);
+      }
+    }
+    
+    // 更新MACD数据（使用计算的指标）
+    if (settings.showMACD && indicators.macd) {
       if (macdSeriesRef.current) {
-        const macdData = convertToLineData(data, 'macd');
+        const macdData = indicators.macd.map((macd: any, index: number) => ({
+          time: (new Date(data[data.length - indicators.macd.length + index].timestamp).getTime() / 1000) as Time,
+          value: macd.MACD,
+        }));
         macdSeriesRef.current.setData(macdData);
       }
       
       if (macdSignalSeriesRef.current) {
-        const signalData = convertToLineData(data, 'macd_signal');
+        const signalData = indicators.macd.map((macd: any, index: number) => ({
+          time: (new Date(data[data.length - indicators.macd.length + index].timestamp).getTime() / 1000) as Time,
+          value: macd.signal,
+        }));
         macdSignalSeriesRef.current.setData(signalData);
       }
       
       if (macdHistogramSeriesRef.current) {
-        const histData = data
-          .filter(item => item.macd_hist !== undefined && item.macd_hist !== null)
-          .map(item => ({
-            time: (new Date(item.timestamp).getTime() / 1000) as Time,
-            value: item.macd_hist as number,
-            color: (item.macd_hist as number) >= 0 ? '#26a69a' : '#ef5350',
-          }));
+        const histData = indicators.macd.map((macd: any, index: number) => ({
+          time: (new Date(data[data.length - indicators.macd.length + index].timestamp).getTime() / 1000) as Time,
+          value: macd.histogram,
+          color: macd.histogram >= 0 ? '#26a69a' : '#ef5350',
+        }));
         macdHistogramSeriesRef.current.setData(histData);
       }
     }
     
-    // 更新RSI数据
-    if (settings.showRSI && rsiSeriesRef.current) {
-      const rsiData = convertToLineData(data, 'rsi');
+    // 更新RSI数据（使用计算的指标）
+    if (settings.showRSI && rsiSeriesRef.current && indicators.rsi) {
+      const rsiData = indicators.rsi.map((value: number, index: number) => ({
+        time: (new Date(data[data.length - indicators.rsi.length + index].timestamp).getTime() / 1000) as Time,
+        value,
+      }));
       rsiSeriesRef.current.setData(rsiData);
     }
     
-    // 更新SCORE数据
+    // 更新Stochastic数据
+    if (settings.showStochastic && indicators.stochastic) {
+      if (stochasticKSeriesRef.current) {
+        const kData = indicators.stochastic.map((stoch: any, index: number) => ({
+          time: (new Date(data[data.length - indicators.stochastic.length + index].timestamp).getTime() / 1000) as Time,
+          value: stoch.k,
+        }));
+        stochasticKSeriesRef.current.setData(kData);
+      }
+      
+      if (stochasticDSeriesRef.current) {
+        const dData = indicators.stochastic.map((stoch: any, index: number) => ({
+          time: (new Date(data[data.length - indicators.stochastic.length + index].timestamp).getTime() / 1000) as Time,
+          value: stoch.d,
+        }));
+        stochasticDSeriesRef.current.setData(dData);
+      }
+    }
+    
+    // 更新ATR数据
+    if (settings.showATR && atrSeriesRef.current && indicators.atr) {
+      const atrData = indicators.atr.map((value: number, index: number) => ({
+        time: (new Date(data[data.length - indicators.atr.length + index].timestamp).getTime() / 1000) as Time,
+        value,
+      }));
+      atrSeriesRef.current.setData(atrData);
+    }
+    
+    // 更新CCI数据
+    if (settings.showCCI && cciSeriesRef.current && indicators.cci) {
+      const cciData = indicators.cci.map((value: number, index: number) => ({
+        time: (new Date(data[data.length - indicators.cci.length + index].timestamp).getTime() / 1000) as Time,
+        value,
+      }));
+      cciSeriesRef.current.setData(cciData);
+    }
+    
+    // 更新Williams %R数据
+    if (settings.showWilliamsR && williamsRSeriesRef.current && indicators.williamsR) {
+      const williamsRData = indicators.williamsR.map((value: number, index: number) => ({
+        time: (new Date(data[data.length - indicators.williamsR.length + index].timestamp).getTime() / 1000) as Time,
+        value,
+      }));
+      williamsRSeriesRef.current.setData(williamsRData);
+    }
+    
+    // 更新SCORE数据（保持原有逻辑）
     if (settings.showScore) {
       if (settings.showScore5m && scoreSeriesRefs.current.score5m) {
         const score5mData = convertToLineData(data, 'score_5m');
@@ -463,7 +1023,7 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
         scoreSeriesRefs.current.totalScore.setData(totalScoreData);
       }
     }
-  }, [data, settings, convertToCandlestickData, convertToVolumeData, convertToLineData]);
+  }, [data, settings, calculateTechnicalIndicators, convertToCandlestickData, convertToVolumeData, convertToLineData]);
   
   // 全屏切换
   const toggleFullscreen = () => {
@@ -479,17 +1039,25 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
   // 初始化图表
   useEffect(() => {
     initializeMainChart();
-    initializeMACDChart();
-    initializeRSIChart();
-    initializeScoreChart();
+    if (settings.showMACD) initializeMACDChart();
+    if (settings.showRSI) initializeRSIChart();
+    if (settings.showStochastic) initializeStochasticChart();
+    if (settings.showATR) initializeATRChart();
+    if (settings.showCCI) initializeCCIChart();
+    if (settings.showWilliamsR) initializeWilliamsRChart();
+    if (settings.showScore) initializeScoreChart();
     
     return () => {
       chartRef.current?.remove();
       macdChartRef.current?.remove();
       rsiChartRef.current?.remove();
+      stochasticChartRef.current?.remove();
+      atrChartRef.current?.remove();
+      cciChartRef.current?.remove();
+      williamsRChartRef.current?.remove();
       scoreChartRef.current?.remove();
     };
-  }, [initializeMainChart, initializeMACDChart, initializeRSIChart, initializeScoreChart]);
+  }, [initializeMainChart, initializeMACDChart, initializeRSIChart, initializeStochasticChart, initializeATRChart, initializeCCIChart, initializeWilliamsRChart, initializeScoreChart, settings]);
   
   // 更新数据
   useEffect(() => {
@@ -512,6 +1080,26 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       if (rsiChartRef.current && rsiContainerRef.current) {
         rsiChartRef.current.applyOptions({
           width: rsiContainerRef.current.clientWidth,
+        });
+      }
+      if (stochasticChartRef.current && stochasticContainerRef.current) {
+        stochasticChartRef.current.applyOptions({
+          width: stochasticContainerRef.current.clientWidth,
+        });
+      }
+      if (atrChartRef.current && atrContainerRef.current) {
+        atrChartRef.current.applyOptions({
+          width: atrContainerRef.current.clientWidth,
+        });
+      }
+      if (cciChartRef.current && cciContainerRef.current) {
+        cciChartRef.current.applyOptions({
+          width: cciContainerRef.current.clientWidth,
+        });
+      }
+      if (williamsRChartRef.current && williamsRContainerRef.current) {
+        williamsRChartRef.current.applyOptions({
+          width: williamsRContainerRef.current.clientWidth,
         });
       }
       if (scoreChartRef.current && scoreContainerRef.current) {
@@ -607,9 +1195,9 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
       {showSettings && (
         <div className="p-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="space-y-4">
-            {/* 技术指标 */}
+            {/* 移动平均线 */}
             <div>
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">技术指标</h4>
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">移动平均线</h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <label className="flex items-center space-x-2">
                   <input
@@ -632,6 +1220,31 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
                 <label className="flex items-center space-x-2">
                   <input
                     type="checkbox"
+                    checked={settings.showSMA20}
+                    onChange={(e) => setSettings(prev => ({ ...prev, showSMA20: e.target.checked }))}
+                    className="rounded"
+                  />
+                  <span className="text-sm">SMA20</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={settings.showBollingerBands}
+                    onChange={(e) => setSettings(prev => ({ ...prev, showBollingerBands: e.target.checked }))}
+                    className="rounded"
+                  />
+                  <span className="text-sm">布林带</span>
+                </label>
+              </div>
+            </div>
+            
+            {/* 技术指标 */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">技术指标</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
                     checked={settings.showMACD}
                     onChange={(e) => setSettings(prev => ({ ...prev, showMACD: e.target.checked }))}
                     className="rounded"
@@ -646,6 +1259,42 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
                     className="rounded"
                   />
                   <span className="text-sm">RSI</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={settings.showStochastic}
+                    onChange={(e) => setSettings(prev => ({ ...prev, showStochastic: e.target.checked }))}
+                    className="rounded"
+                  />
+                  <span className="text-sm">Stochastic</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={settings.showATR}
+                    onChange={(e) => setSettings(prev => ({ ...prev, showATR: e.target.checked }))}
+                    className="rounded"
+                  />
+                  <span className="text-sm">ATR</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={settings.showCCI}
+                    onChange={(e) => setSettings(prev => ({ ...prev, showCCI: e.target.checked }))}
+                    className="rounded"
+                  />
+                  <span className="text-sm">CCI</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={settings.showWilliamsR}
+                    onChange={(e) => setSettings(prev => ({ ...prev, showWilliamsR: e.target.checked }))}
+                    className="rounded"
+                  />
+                  <span className="text-sm">Williams %R</span>
                 </label>
                 <label className="flex items-center space-x-2">
                   <input
@@ -747,6 +1396,58 @@ export const TradingViewChart: React.FC<TradingViewChartProps> = ({
               </span>
             </div>
             <div ref={rsiContainerRef} className="w-full" />
+          </div>
+        )}
+        
+        {/* Stochastic图表 */}
+        {settings.showStochastic && (
+          <div className="relative">
+            <div className="absolute top-2 left-4 z-10">
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded shadow">
+                Stochastic
+              </span>
+            </div>
+            <div className="absolute top-2 right-4 z-10 flex space-x-2">
+              <span className="text-xs text-blue-600">●%K</span>
+              <span className="text-xs text-orange-600">●%D</span>
+            </div>
+            <div ref={stochasticContainerRef} className="w-full" />
+          </div>
+        )}
+        
+        {/* ATR图表 */}
+        {settings.showATR && (
+          <div className="relative">
+            <div className="absolute top-2 left-4 z-10">
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded shadow">
+                ATR
+              </span>
+            </div>
+            <div ref={atrContainerRef} className="w-full" />
+          </div>
+        )}
+        
+        {/* CCI图表 */}
+        {settings.showCCI && (
+          <div className="relative">
+            <div className="absolute top-2 left-4 z-10">
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded shadow">
+                CCI
+              </span>
+            </div>
+            <div ref={cciContainerRef} className="w-full" />
+          </div>
+        )}
+        
+        {/* Williams %R图表 */}
+        {settings.showWilliamsR && (
+          <div className="relative">
+            <div className="absolute top-2 left-4 z-10">
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded shadow">
+                Williams %R
+              </span>
+            </div>
+            <div ref={williamsRContainerRef} className="w-full" />
           </div>
         )}
         
