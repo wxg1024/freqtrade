@@ -216,10 +216,10 @@ app.get('/api/scoring', async (req, res) => {
     Object.values(groupedData).forEach(item => {
       item.total_score = item.timeframe_5m + item.timeframe_15m + item.timeframe_1h + item.timeframe_4h + item.timeframe_1d;
       
-      if (item.total_score > 50) item.signal = 'STRONG_BUY';
-      else if (item.total_score > 20) item.signal = 'BUY';
-      else if (item.total_score < -50) item.signal = 'STRONG_SELL';
-      else if (item.total_score < -20) item.signal = 'SELL';
+      if (item.total_score >= 3) item.signal = 'STRONG_BUY';
+      else if (item.total_score > 0) item.signal = 'BUY';
+      else if (item.total_score <= -3) item.signal = 'STRONG_SELL';
+      else if (item.total_score < 0) item.signal = 'SELL';
       else item.signal = 'NEUTRAL';
     });
     
@@ -331,10 +331,10 @@ app.get('/api/scoring/latest', async (req, res) => {
     const formattedData = Object.values(pairGroups).map(item => {
       item.total_score = item.timeframe_5m + item.timeframe_15m + item.timeframe_1h + item.timeframe_4h + item.timeframe_1d;
       
-      if (item.total_score > 50) item.signal = 'STRONG_BUY';
-      else if (item.total_score > 20) item.signal = 'BUY';
-      else if (item.total_score < -50) item.signal = 'STRONG_SELL';
-      else if (item.total_score < -20) item.signal = 'SELL';
+      if (item.total_score >= 3) item.signal = 'STRONG_BUY';
+      else if (item.total_score > 0) item.signal = 'BUY';
+      else if (item.total_score <= -3) item.signal = 'STRONG_SELL';
+      else if (item.total_score < 0) item.signal = 'SELL';
       else item.signal = 'NEUTRAL';
       
       return item;
@@ -402,10 +402,10 @@ app.get('/api/scoring/trends', async (req, res) => {
     const formattedData = Object.values(groupedData).map(item => {
       item.total_score = item.timeframe_5m + item.timeframe_15m + item.timeframe_1h + item.timeframe_4h + item.timeframe_1d;
       
-      if (item.total_score > 50) item.signal = 'STRONG_BUY';
-      else if (item.total_score > 20) item.signal = 'BUY';
-      else if (item.total_score < -50) item.signal = 'STRONG_SELL';
-      else if (item.total_score < -20) item.signal = 'SELL';
+      if (item.total_score >= 3) item.signal = 'STRONG_BUY';
+      else if (item.total_score > 0) item.signal = 'BUY';
+      else if (item.total_score <= -3) item.signal = 'STRONG_SELL';
+      else if (item.total_score < 0) item.signal = 'SELL';
       else item.signal = 'NEUTRAL';
       
       return item;
@@ -548,10 +548,10 @@ io.on('connection', (socket) => {
           formattedScoring.total_score = formattedScoring.timeframe_5m + formattedScoring.timeframe_15m + 
             formattedScoring.timeframe_1h + formattedScoring.timeframe_4h + formattedScoring.timeframe_1d;
           
-          if (formattedScoring.total_score > 50) formattedScoring.signal = 'STRONG_BUY';
-          else if (formattedScoring.total_score > 20) formattedScoring.signal = 'BUY';
-          else if (formattedScoring.total_score < -50) formattedScoring.signal = 'STRONG_SELL';
-          else if (formattedScoring.total_score < -20) formattedScoring.signal = 'SELL';
+          if (formattedScoring.total_score >= 3) formattedScoring.signal = 'STRONG_BUY';
+          else if (formattedScoring.total_score > 0) formattedScoring.signal = 'BUY';
+          else if (formattedScoring.total_score <= -3) formattedScoring.signal = 'STRONG_SELL';
+          else if (formattedScoring.total_score < 0) formattedScoring.signal = 'SELL';
           else formattedScoring.signal = 'NEUTRAL';
           
           socket.emit('new_scoring_data', formattedScoring);

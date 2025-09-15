@@ -35,6 +35,7 @@ interface ScoreData {
   score_15m?: number;
   score_1h?: number;
   score_4h?: number;
+  total_score?:number;
 }
 
 interface ChartData {
@@ -68,7 +69,7 @@ const TIMEFRAMES = [
 
 export const KlineProcCharts: React.FC = () => {
   const [selectedPair, setSelectedPair] = useState('BTC/USDT');
-  const [selectedTimeframe, setSelectedTimeframe] = useState('1h');
+  const [selectedTimeframe, setSelectedTimeframe] = useState('5m');
   const [chartData, setChartData] = useState<ChartData>({
     kline: [],
     indicators: [],
@@ -155,66 +156,58 @@ export const KlineProcCharts: React.FC = () => {
   const fetchChartData = async () => {
     setLoading(true);
     try {
-      if (isConnected) {
-        // 调用真实的API获取K线数据
-        const apiData = await getCandleData(selectedPair, selectedTimeframe as Timeframe, 200);
-        
-        // 转换API数据格式为组件需要的格式
-        const klineData: KlineData[] = apiData.map((item: any) => ({
-          timestamp: new Date(item.timestamp).getTime(),
-          open: item.open,
-          high: item.high,
-          low: item.low,
-          close: item.close,
-          volume: item.volume
-        }));
-        
-        // 获取真实的指标数据
-        const apiIndicatorData = await getIndicatorData(selectedPair, selectedTimeframe as Timeframe, 200);
-        const indicatorData: IndicatorData[] = apiIndicatorData.map((item: any) => ({
-          timestamp: new Date(item.timestamp).getTime(),
-          macd: item.macd || 0,
-          signal: item.signal || 0,
-          histogram: item.histogram || 0,
-          rsi: item.rsi || 0,
-          stoch_k: item.stoch_k || 0,
-          stoch_d: item.stoch_d || 0,
-          atr: item.atr || 0,
-          cci: item.cci || 0,
-          williams_r: item.williams_r || 0
-        }));
-        
-        // 获取真实的评分数据
-        const apiScoreData = await getScoringData(selectedPair, 200);
-        const scoreData: ScoreData[] = apiScoreData.map((item: any) => ({
-          timestamp: new Date(item.timestamp).getTime(),
-          score_5m: item.score_5m || 0,
-          score_15m: item.score_15m || 0,
-          score_1h: item.score_1h || 0,
-          score_4h: item.score_4h || 0
-        }));
-        
-        setChartData({
-          kline: klineData,
-          indicators: indicatorData,
-          scores: scoreData
-        });
-        
-        toast.success(`成功获取 ${klineData.length} 条K线数据`);
-      } else {
-        // 连接断开时使用模拟数据
-        const mockData = generateMockData();
-        setChartData(mockData);
-        toast.warning('连接已断开，显示的是模拟数据');
-      }
+      // 调用真实的API获取K线数据
+      const apiData = await getCandleData(selectedPair, selectedTimeframe as Timeframe, 500);
+      
+      // 转换API数据格式为组件需要的格式
+      const klineData: KlineData[] = apiData.map((item: any) => ({
+        timestamp: new Date(item.timestamp).getTime(),
+        open: item.open,
+        high: item.high,
+        low: item.low,
+        close: item.close,
+        volume: item.volume
+      }));
+      
+      // 获取真实的指标数据
+      const apiIndicatorData = await getIndicatorData(selectedPair, selectedTimeframe as Timeframe, 500);
+      const indicatorData: IndicatorData[] = apiIndicatorData.map((item: any) => ({
+        timestamp: new Date(item.timestamp).getTime(),
+        macd: item.macd || 0,
+        signal: item.signal || 0,
+        histogram: item.histogram || 0,
+        rsi: item.rsi || 0,
+        stoch_k: item.stoch_k || 0,
+        stoch_d: item.stoch_d || 0,
+        atr: item.atr || 0,
+        cci: item.cci || 0,
+        williams_r: item.williams_r || 0
+      }));
+      
+      // 获取真实的评分数据
+      const apiScoreData = await getScoringData(selectedPair, 500);
+      const scoreData: ScoreData[] = apiScoreData.map((item: any) => ({
+        timestamp: new Date(item.timestamp).getTime(),
+        score_5m: item.timeframe_5m || 0,
+        score_15m: item.timeframe_15m || 0,
+        score_1h: item.timeframe_1h || 0,
+        score_4h: item.timeframe_4h || 0,
+        total_score: item.total_score || 0
+      }));
+      
+      console.log('API Score data sample:', apiScoreData.slice(0, 2));
+      console.log('Mapped score data sample:', scoreData.slice(0, 2));
+      
+      setChartData({
+        kline: klineData,
+        indicators: indicatorData,
+        scores: scoreData
+      });
+      
+      toast.success(`成功获取 ${klineData.length} 条K线数据`);
     } catch (error: any) {
       console.error('获取图表数据失败:', error);
       toast.error(`获取图表数据失败: ${error.message || '未知错误'}`);
-      
-      // 出错时回退到模拟数据
-      const mockData = generateMockData();
-      setChartData(mockData);
-      toast.info('已切换到模拟数据显示');
     } finally {
       setLoading(false);
     }
@@ -264,11 +257,12 @@ export const KlineProcCharts: React.FC = () => {
           low: item.low,
           close: item.close,
           volume: item.volume,
-          // 添加Score数据用于自定义指标
-          score_5m: scoreItem?.score_5m || Math.random() * 100, // 临时使用随机数确保有数据
-          score_15m: scoreItem?.score_15m || Math.random() * 100,
-          score_1h: scoreItem?.score_1h || Math.random() * 100,
-          score_4h: scoreItem?.score_4h || Math.random() * 100
+          // 添加Score数据用于自定义指标 - 使用真实API数据
+          score_5m: scoreItem?.score_5m || 0, // 使用真实数据，没有数据时为0
+          score_15m: scoreItem?.score_15m || 0,
+          score_1h: scoreItem?.score_1h || 0,
+          score_4h: scoreItem?.score_4h || 0,
+          total_score: scoreItem?.total_score || 0,
         };
         
         // 调试前几条数据
@@ -276,11 +270,13 @@ export const KlineProcCharts: React.FC = () => {
           console.log(`Data item ${index}:`, {
             timestamp: new Date(item.timestamp).toISOString(),
             scoreItem: scoreItem,
+            hasScoreData: !!scoreItem,
             result: {
               score_5m: result.score_5m,
               score_15m: result.score_15m,
               score_1h: result.score_1h,
-              score_4h: result.score_4h
+              score_4h: result.score_4h,
+              total_score:result.total_score
             }
           });
         }
@@ -314,13 +310,15 @@ export const KlineProcCharts: React.FC = () => {
         { key: 'score_5m', title: '5m评分', type: 'line' },
         { key: 'score_15m', title: '15m评分', type: 'line' },
         { key: 'score_1h', title: '1h评分', type: 'line' },
-        { key: 'score_4h', title: '4h评分', type: 'line' }
+        { key: 'score_4h', title: '4h评分', type: 'line' },
+        { key: 'total_score', title: '总评分', type: 'line' }
       ],
       styles: {
         score_5m: { color: '#FF6B6B' },
         score_15m: { color: '#4ECDC4' },
         score_1h: { color: '#45B7D1' },
-        score_4h: { color: '#96CEB4' }
+        score_4h: { color: '#96CEB4' },
+        total_score: { color: '#FFA500' }
       },
       calc: (dataList: any[]) => {
         return dataList.map(kLineData => {
@@ -328,7 +326,8 @@ export const KlineProcCharts: React.FC = () => {
             score_5m: Number(kLineData.score_5m) || 0,
             score_15m: Number(kLineData.score_15m) || 0,
             score_1h: Number(kLineData.score_1h) || 0,
-            score_4h: Number(kLineData.score_4h) || 0
+            score_4h: Number(kLineData.score_4h) || 0,
+            total_score:Number(kLineData.total_score) ||0
           };
           return result;
         });
