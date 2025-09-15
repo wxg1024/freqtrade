@@ -22,11 +22,12 @@ permissions:
 
 jobs:
   deploy-docker:
+    name: "Deploy Docker x64 and armv7l"
     runs-on: ubuntu-22.04
     if: github.repository == 'freqtrade/freqtrade'
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         persist-credentials: false
 
@@ -55,14 +56,6 @@ jobs:
       run: |
         echo "${DOCKER_PASSWORD}" | docker login --username ${DOCKER_USERNAME} --password-stdin
 
-    # We need docker experimental to pull the ARM image.
-    - name: Switch docker to experimental
-      run: |
-          docker version -f '{{.Server.Experimental}}'
-          echo $'{\n    "experimental": true\n}' | sudo tee /etc/docker/daemon.json
-          sudo systemctl restart docker
-          docker version -f '{{.Server.Experimental}}'
-
     - name: Set up QEMU
       uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
 
@@ -82,7 +75,7 @@ jobs:
         build_helpers/publish_docker_multi.sh
 
   deploy-arm:
-    name: "Deploy Docker"
+    name: "Deploy Docker ARM64"
     permissions:
       packages: write
     needs: [ deploy-docker ]
@@ -91,7 +84,7 @@ jobs:
     if: github.repository == 'freqtrade/freqtrade'
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         persist-credentials: false
 
