@@ -23,3 +23,8 @@ build_helpers/ta-lib
 *.sln
 *.sw?
 /freqtrade/strategy/__pycache__
+/.venv
+/freqtrade.egg-info
+/user_data
+/user_data
+/freqtrade/rpc

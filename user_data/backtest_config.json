@@ -1,0 +1,98 @@
+{
+    "$schema": "https://schema.freqtrade.io/schema.json",
+    "max_open_trades": 1,
+    "stake_currency": "USDT",
+    "stake_amount": 100,
+    "dry_run_wallet": 10000,
+    "tradable_balance_ratio": 0.99,
+    "fiat_display_currency": "USD",
+    "timeframe": "5m",
+    "dry_run": true,
+    "trading_mode":"futures",
+    "margin_mode": "isolated",
+    "cancel_open_orders_on_exit": false,
+    "use_exit_signal": true,
+    "entry_pricing": {
+      "price_side": "ask",
+      "use_order_book": true,
+      "order_book_top": 1
+    },
+    "exit_pricing": {
+      "price_side": "bid",
+      "use_order_book": true,
+      "order_book_top": 1
+    },
+    "order_types": {
+      "entry": "limit",
+      "exit": "limit",
+      "stoploss": "market",
+      "stoploss_on_exchange": false
+    },
+    "unfilledtimeout": {
+        "entry": 10,
+        "exit": 10,
+        "exit_timeout_count": 0,
+        "unit": "minutes"
+    },
+    "exchange": {
+        "name": "binance",
+        "key": "YOUR_BINANCE_API_KEY",
+        "secret": "YOUR_BINANCE_API_SECRET",
+        "ccxt_config": {
+            "enableRateLimit": true,
+            "options": {
+                "defaultType": "future"
+            }
+        },
+        "ccxt_async_config": {},
+        "pair_whitelist": [
+            "ETH/USDT:USDT"
+        ],
+        "pair_blacklist": [],
+        "rateLimit": 1200,
+        "enableRateLimit": true
+    },
+    "pairlists": [
+        {
+            "method": "StaticPairList",
+            "pairs": [
+                "BTC/USDT",
+                "ETH/USDT"
+            ]
+        }
+    ],
+    "strategy": "MacdStrategy",
+    "telegram": {
+        "enabled": false,
+        "token": "8033007042:AAEaNd9foqe8VQSHJfCvjNF21Q66BF1isok",
+        "chat_id": "584536494"
+    },
+    "api_server": {
+        "enabled": false,
+        "listen_ip_address": "0.0.0.0",
+        "listen_port": 8086,
+        "verbosity": "error",
+        "enable_openapi": false,
+        "jwt_secret_key": "4c5184a1b3ed290a1d8bd3f237fe53fc50fa0db89ff2de42a3532e1152c1fa9f",
+        "ws_token": "YENMMdJ5droiWTdn_5g7u1L7TStt9TIUUg",
+        "CORS_origins": [],
+        "username": "freqtrader",
+        "password": "Freqidkek@&^169"
+    },
+    "database": {
+        "type": "sqlite",
+        "sqlite": {
+            "filename": "tradesv3.sqlite"
+        }
+    },
+    "logger": {
+        "logfile": "freqtrade.log",
+        "level": "INFO"
+    },
+    "bot_name": "freqtrade_backtest",
+    "initial_state": "running",
+    "force_entry_enable": false,
+    "internals": {
+        "process_throttle_secs": 5
+    }
+}
